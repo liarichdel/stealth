@@ -49,6 +49,29 @@ Pastikan Anda sudah menginstal **Python (versi 3.8 atau yang lebih baru)** di ko
 ### Langkah-Langkah Instalasi
 
 1.  **Clone Repositori Ini**
-    ```bash
     git clone https://github.com/miyuki-cell/stealth.git
     cd stealth
+
+2. **Buat & aktifkan Virtual environments (Direkomendasikan)**
+   - Windows
+     python -m venv venv
+     venv\Scripts\activate
+
+   - macOS/Linux
+     python3 -m venv venv
+     source venv/bin/activate
+
+3.  **Instal Dependensi**
+    Game ini hanya membutuhkan library Pygame. Instal menggunakan perintah berikut:
+    pip install pygame
+
+4. **Jalankan Game**
+   Eksekusi file utama proyek untuk memulai permainan:
+   python stealth.py
+
+   atau
+
+   python3 stealth.py
+
+
+   

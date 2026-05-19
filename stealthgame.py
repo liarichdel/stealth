@@ -207,3 +207,154 @@ class SearchState(EnemyState):
 
     def exit(self, enemy):
         pass
+
+class GameObject(ABC):
+    def __init__(self, obj_id: int, x: int, y: int, is_interactable: bool):
+        self.id = obj_id
+        self.x = x
+        self.y = y
+        self.is_interactable = is_interactable
+
+    @abstractmethod
+    def on_interact(self):
+        pass
+
+
+class Player(Entity):
+    def __init__(self, x: int, y: int, width: int, height: int, speed: int):
+        super().__init__(x, y, width, height, speed)
+        self.visibility_level: int = 100
+        self.is_hidden: bool = False
+        self.has_objective: bool = False
+        self.image.fill((0, 255, 0))
+
+    def hide(self):
+        self.is_hidden = True
+        self.visibility_level = 0
+        print("Player is now hidden.")
+
+    def interact(self, obj: GameObject):
+        if obj.is_interactable:
+            obj.on_interact()
+
+    def update_visibility(self):
+        if not self.is_hidden:
+            self.visibility_level = 100
+
+
+class Tile:
+    def __init__(self, x: int, y: int, is_wall: bool, texture: str):
+        self.x = x
+        self.y = y
+        self.is_wall = is_wall
+        self.texture = texture
+
+
+class Room:
+    def __init__(self, x: int, y: int, width: int, height: int, room_type: str):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.room_type = room_type
+        self.objects: List[GameObject] = []
+
+    def generate_objects(self):
+        pass
+
+
+class GameMap:
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.tiles: List[List[Tile]] = []
+        self.rooms: List[Room] = []
+        self.tile_size = 32
+
+    def load_map(self, file_path: str):
+        self.tiles = []
+        for y in range(self.height):
+            row = []
+            for x in range(self.width):
+                is_wall = (x == 0 or x == self.width - 1 or y == 0 or y == self.height - 1)
+                row.append(Tile(x, y, is_wall, "wall_tex" if is_wall else "floor_tex"))
+            self.tiles.append(row)
+
+    def is_walkable(self, x: int, y: int) -> bool:
+        if 0 <= x < self.width and 0 <= y < self.height:
+            return not self.tiles[y][x].is_wall
+        return False
+
+    def draw(self, screen: pygame.Surface):
+        for y in range(self.height):
+            for x in range(self.width):
+                tile = self.tiles[y][x]
+                color = (100, 100, 100) if tile.is_wall else (200, 200, 200)
+                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
+                pygame.draw.rect(screen, color, rect)
+                pygame.draw.rect(screen, (50, 50, 50), rect, 1)  # Grid line
+
+class Enemy(Entity):
+    def __init__(self, x, y, width, height, speed):
+        super().__init__(x, y, width, height, speed)
+        self.image.fill((255, 0, 0))
+        self.alert_level = 0
+        self.patrol_points = []
+        self.current_state = None
+
+    def change_state(self, new_state: EnemyState):
+        if self.current_state:
+            self.current_state.exit(self)
+        self.current_state = new_state
+        self.current_state.enter(self)
+
+    def detect_player(self, player: Player) -> bool:
+        return False
+
+    def update_enemy(self, player: Player):
+        if self.current_state:
+            self.current_state.execute(self, player)
+        super().update()
+
+
+class Game:
+    def __init__(self):
+        self.state: str = "INIT"
+        self.map: GameMap = GameMap(25, 18)  # Contoh ukuran grid 25x18 (800x576 px)
+        self.player: Player = Player(64, 64, 32, 32, 5)
+        self.enemies: List[Enemy] = []
+
+    def start(self):
+        self.state = "PLAYING"
+        self.map.load_map("dummy_path")
+
+        enemy1 = Enemy(400, 300, 32, 32, 2)
+        enemy1.change_state(PatrolState())
+        self.enemies.append(enemy1)
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        dx, dy = 0, 0
+        if keys[pygame.K_w] or keys[pygame.K_UP]: dy = -1
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]: dy = 1
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]: dx = -1
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]: dx = 1
+
+        if dx != 0 or dy != 0:
+            if dx != 0 and dy != 0:
+                dx *= 0.7071
+                dy *= 0.7071
+            self.player.move(dx, dy, self.map)
+
+    def update(self):
+        if self.state == "PLAYING":
+            self.player.update()
+            for enemy in self.enemies:
+                enemy.update_enemy(self.player)
+
+    def draw(self, screen: pygame.Surface):
+        screen.fill((0, 0, 0))  # Background hitam
+        self.map.draw(screen)
+        self.player.draw(screen)
+        for enemy in self.enemies:
+            enemy.draw(screen)

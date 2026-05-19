@@ -2,6 +2,7 @@ import pygame
 import math
 import random
 from abc import ABC, abstractmethod
+from typing import List
 
 class Entity(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, width: int, height: int, speed: int):
@@ -309,7 +310,14 @@ class Enemy(Entity):
         self.current_state.enter(self)
 
     def detect_player(self, player: Player) -> bool:
-        return False
+        dx = player.x - self.x
+        dy = player.y - self.y
+        distance = math.hypot(dx, dy)
+        detection_range = 150
+
+        if player.is_hidden:
+            return distance < detection_range * 0.3
+            return distance < detection_range
 
     def update_enemy(self, player: Player):
         if self.current_state:

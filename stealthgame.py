@@ -366,3 +366,146 @@ class Game:
         self.player.draw(screen)
         for enemy in self.enemies:
             enemy.draw(screen)
+
+class Item:
+    def __init__(self, name:str, effect:str, value:str):
+        self.name: str = name
+        self.effect: str = effect
+        self.value: str = value
+
+    def use(self, player: Player):
+        if "heal" in self.effect.lower():
+            player.health = min(100, player.health + int(self.value))
+        elif "hack" in self.effect.lower():
+            player.hack_skill += int(self.value)
+
+    def draw(self, screen: pygame.Surface):
+        pass
+
+    def get_rect(self) -> pygame.Rect:
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+class SecurityCamera:
+    def __init__(self, x:int, y:int):
+        self.x = x
+        self.y = y
+        self.vision_range: int = 120
+        self.rotation_angle: int = 0
+        self.is_active: bool = True
+        self._vision = VisionSystem(max_distance =self.vision_range)
+        self._rotation_speed: int = 2  # derajat per frame
+        self._alarm_triggered: bool = False
+
+    def rotate(self):
+        if self.is_active:
+            self.rotation_angle = (self.rotation_angle + 1) % 360
+
+    def detect_player(self, player) -> bool:
+        if not self.is_active:
+            return False
+        return self._vision.can_see_player(self, player)
+
+    def trigger_alarm(self):
+        if not self._alarm_triggered:
+            self._alarm_triggered = True
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, (255, 0, 0) if self.is_active else (100, 100, 100), (int(self.x), int(self.y)), 10)
+
+        if self.is_active:
+            rad = math.radians(self.rotation_angle)
+            end_x = self.x + math.cos(rad) * self.vision_range
+            end_y = self.y - math.sin(rad) * self.vision_range
+            pygame.draw.line(screen, (255, 0, 0, 50), (self.x, self.y), (end_x, end_y), 2)
+
+class Terminal:
+    def __init__(self, x: int, y: int):
+        self.x: int = x
+        self.y: int = y
+        self.is_hacked: bool = False
+        self.hack_difficulty: int = random.randint(1, 5)
+
+    def hack(self, player: Player) -> bool:
+        if self.is_hacked:
+            print("Terminal sudah diretas.")
+            return True
+
+        if player.hack_skill >= self.hack_difficulty:
+            self.is_hacked = True
+            print("Hacking Berhasil! Sistem kamera di area ini dimatikan.")
+            return True
+        else:
+            print("Hacking Gagal! Level skill kurang atau sistem terkunci.")
+            return False
+
+    def draw(self, screen: pygame.Surface):
+        color = (0, 255, 0) if self.is_hacked else (0, 0, 255)
+        rect = pygame.Rect(self.x - 12, self.y - 12, 24, 24)
+        pygame.draw.rect(screen, color, rect)
+
+class VisionSystem:
+    def __init__(self):
+        self.max_distance: int = 200
+
+    def calculate_distance(self, enemy: Enemy, player: Player) -> float:
+        return math.hypot(player.x - enemy.x, player.y - enemy.y)
+
+    def check_line_of_sight(self, enemy: Enemy, player: Player, game_map: GameMap) -> bool:
+        start_x, start_y = enemy.x, enemy.y
+        end_x, end_y = player.x, player.y
+
+        steps = int(self.calculate_distance(enemy, player) / 10)
+        if steps == 0: return True
+
+        for i in range(1, steps):
+            t = i / steps
+            check_x = start_x + (end_x - start_x) * t
+            check_y = start_y + (end_y - start_y) * t
+
+            # mngonversi koordinat pixel ke koordinat grid map
+            tile_x = int(check_x // game_map.tile_size)
+            tile_y = int(check_y // game_map.tile_size)
+
+            # nabrak tembok, pandangan kehalang
+            if not game_map.is_walkable(tile_x, tile_y):
+                return False
+        return True
+
+    def can_see_player(self, enemy: Enemy, player: Player, game_map: GameMap) -> bool:
+        if player.is_hidden:
+            return False
+
+        distance = self.calculate_distance(enemy, player)
+        if distance > self.max_distance:
+            return False
+
+        return self.check_line_of_sight(enemy, player, game_map)
+
+class ObjectFactory:
+    def __init__(self, difficulty_level: int = 1):
+        self.enemy_types: list = ["Guard", "Patroller", "Elite"]
+        self.item_types: list = ["Medkit", "Keycard", "HackTool"]
+        self.difficulty_level: int = difficulty_level
+
+    def create_enemy(self, x: int, y: int) -> Enemy:
+        from __main__ import Enemy, PatrolState
+        speed = 2 + (self.difficulty_level * 0.5)
+        enemy = Enemy(x, y, 32, 32, int(speed))
+        enemy.patrol_points = [(x, y), (x + 150, y), (x + 150, y + 150), (x, y + 150)]
+        enemy.change_state(PatrolState())
+        return enemy
+
+    def create_item(self, x: int, y: int) -> Item:
+        chosen_type = random.choice(self.item_types)
+        if chosen_type == "Medkit":
+            return Item("Medkit", "Heal Player", str(20 * self.difficulty_level))
+        elif chosen_type == "HackTool":
+            return Item("Screwdriver", "Increase Hack Skill", "1")
+        else:
+            return Item("Keycard", "Unlock Terminal Gate", "0")
+
+    def create_terminal(self, x: int, y: int) -> Terminal:
+        return Terminal(x, y)
+
+    def create_camera(self, x: int, y: int) -> SecurityCamera:
+        return SecurityCamera(x, y)

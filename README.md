@@ -25,6 +25,8 @@ Sebuah proyek game aksi penyusupan dari sudut pandang atas (*top-down*) yang mem
 * **Hacking & Inventory System**
   Pemain dapat meretas terminal keamanan untuk membuka jalan atau menonaktifkan kamera, serta mengumpulkan *item* acak dari *factory drop*.
 
+  tes ;(
+
 ---
 
 ## Penjelasan Implementasi OOP
